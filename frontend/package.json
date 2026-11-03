@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "name": "datalume-browser-assets",
+  "version": "1.0.0",
+  "dependencies": {
+    "chart.js": "4.4.4",
+    "leaflet": "1.9.4",
+    "topojson-client": "3.1.0",
+    "us-atlas": "3.0.1"
+  }
+}

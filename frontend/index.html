@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Datalume — Chat With Your Data</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%235b8cff'/%3E%3Cstop offset='100%25' stop-color='%237fd1ae'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='url(%23g)'/%3E%3Crect x='22' y='52' width='14' height='26' rx='3' fill='white'/%3E%3Crect x='43' y='36' width='14' height='42' rx='3' fill='white'/%3E%3Crect x='64' y='22' width='14' height='56' rx='3' fill='white'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <script src="/vendor/chart.js/chart.umd.min.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/topojson-client/topojson-client.min.js"></script>
+  <script src="theme-init.js"></script>
+</head>
+<body>
+  <div id="auth-gate" class="auth-gate hidden">
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <h2 id="auth-title">Sign in to Datalume</h2>
+      <p id="auth-hint">Use your Datalume account to keep sessions private and available after a reload.</p>
+      <form id="auth-form">
+        <label><span>Username</span><input id="auth-username" autocomplete="username" required minlength="3" /></label>
+        <label><span>Password</span><input id="auth-password" type="password" autocomplete="current-password" required minlength="8" /></label>
+        <button type="submit" id="auth-submit">Sign in</button>
+      </form>
+      <button type="button" id="auth-mode-toggle" class="btn-link">Need an account? Create one</button>
+      <div id="auth-error" class="auth-error" role="alert"></div>
+    </div>
+  </div>
+  <header>
+    <div class="header-inner">
+      <div class="header-top">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 100 100" width="30" height="30" role="img" aria-label="Datalume logo">
+            <defs>
+              <linearGradient id="logoGradHeader" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#5b8cff" />
+                <stop offset="100%" stop-color="#7fd1ae" />
+              </linearGradient>
+            </defs>
+            <rect width="100" height="100" rx="24" fill="url(#logoGradHeader)" />
+            <rect x="22" y="52" width="14" height="26" rx="3" fill="#fff" />
+            <rect x="43" y="36" width="14" height="42" rx="3" fill="#fff" />
+            <rect x="64" y="22" width="14" height="56" rx="3" fill="#fff" />
+          </svg>
+          <h1>Datalume</h1>
+        </div>
+        <div class="header-btn-group">
+          <button type="button" id="llm-status" class="llm-status" title="Checking local model…" aria-live="polite" aria-label="Local model status — click to switch models">
+            <span class="llm-status-dot" aria-hidden="true"></span>
+            <span id="llm-status-text">Checking…</span>
+          </button>
+          <button type="button" id="shortcuts-btn" class="icon-btn" title="Keyboard shortcuts (?)" aria-label="Show keyboard shortcuts">
+            <span aria-hidden="true">⌨</span>
+          </button>
+          <button type="button" id="palette-toggle" class="icon-btn" title="Switch to colorblind-safe chart colors" aria-label="Switch to colorblind-safe chart colors" aria-pressed="false">
+            <span aria-hidden="true">◐</span>
+          </button>
+          <button type="button" id="theme-toggle" class="icon-btn" title="Toggle light / dark theme" aria-label="Toggle theme">
+            <span id="theme-toggle-icon" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="auth-logout" class="btn-link hidden">Log out</button>
+        </div>
+      </div>
+      <p class="subtitle">Upload a CSV, Excel, or Power BI (.pbix) file, then ask questions about it in plain English.</p>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcome-section" class="hero">
+      <svg class="hero-logo-mark" viewBox="0 0 100 116" width="80" height="80" role="img" aria-label="Datalume logo">
+        <defs>
+          <linearGradient id="logoGradHero" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#5b8cff" />
+            <stop offset="100%" stop-color="#7fd1ae" />
+          </linearGradient>
+        </defs>
+        <rect width="100" height="100" rx="24" fill="url(#logoGradHero)" />
+        <path d="M22 100 L38 100 L22 116 Z" fill="url(#logoGradHero)" />
+        <rect x="22" y="52" width="14" height="26" rx="3" fill="#fff" />
+        <rect x="43" y="36" width="14" height="42" rx="3" fill="#fff" />
+        <rect x="64" y="22" width="14" height="56" rx="3" fill="#fff" />
+      </svg>
+      <h2 class="hero-title">Meet Datalume</h2>
+      <p class="hero-tagline">Turn any spreadsheet into a conversation. Upload a file and ask questions about your data in plain English — no formulas, no queries, no dashboards to build by hand.</p>
+      <div class="hero-steps">
+        <div class="hero-step">
+          <span class="hero-step-num" aria-hidden="true">1</span>
+          <div><strong>Upload</strong><span>CSV, Excel, or Power BI</span></div>
+        </div>
+        <div class="hero-step">
+          <span class="hero-step-num" aria-hidden="true">2</span>
+          <div><strong>Ask</strong><span>Plain-English questions</span></div>
+        </div>
+        <div class="hero-step">
+          <span class="hero-step-num" aria-hidden="true">3</span>
+          <div><strong>Discover</strong><span>Instant answers &amp; charts</span></div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button type="button" id="hero-get-started">Get started</button>
+        <button type="button" id="hero-sample-data" class="btn-secondary">Try sample data</button>
+      </div>
+    </section>
+
+    <section id="upload-section" class="panel hidden">
+      <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Choose a CSV, Excel, or Power BI file to upload">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.pbix" hidden />
+        <div class="drop-zone-icon" aria-hidden="true">📄</div>
+        <p class="drop-zone-title">Drag &amp; drop a file here, or click to browse</p>
+        <p class="drop-zone-hint">.csv, .xlsx, .xls, or .pbix — up to 300 MB</p>
+      </div>
+      <div class="upload-actions">
+        <button type="button" id="sample-data-btn" class="btn-secondary">Try sample data</button>
+      </div>
+      <div id="upload-progress" class="upload-progress hidden">
+        <div id="upload-progress-bar" class="upload-progress-bar"></div>
+      </div>
+      <div id="upload-status" class="status-line hidden"></div>
+    </section>
+
+    <section id="app-section" class="hidden">
+      <div class="source-bar">
+        <span id="source-filename"></span>
+        <div class="source-bar-actions">
+          <button type="button" id="print-report-btn" class="btn-link">Print / Save as PDF</button>
+          <button type="button" id="export-report-btn" class="btn-link">Export report</button>
+          <button type="button" id="add-table-btn" class="btn-link">Add another file</button>
+          <button type="button" id="change-file-btn" class="btn-link">Upload a different file</button>
+        </div>
+      </div>
+      <input type="file" id="add-table-input" accept=".csv,.xlsx,.xls,.pbix" hidden />
+      <div id="add-table-progress" class="upload-progress hidden">
+        <div id="add-table-progress-bar" class="upload-progress-bar"></div>
+      </div>
+      <div id="add-table-status" class="status-line hidden"></div>
+      <div id="data-health-banner" class="data-health-banner hidden"></div>
+      <div class="grid">
+        <div class="panel" id="dashboard-panel">
+          <div class="panel-header-row">
+            <h2>Dashboard</h2>
+            <div class="header-row-actions">
+              <button type="button" id="dashboard-export-all-btn" class="btn-link hidden">Download all charts</button>
+            </div>
+          </div>
+          <div id="dashboard-narrative" class="dashboard-narrative hidden"></div>
+          <div id="relationships-panel" class="relationships-panel hidden"></div>
+          <div id="dashboard-content"></div>
+        </div>
+
+        <div class="panel" id="chat-panel">
+          <div class="panel-header-row">
+            <h2>Ask a question</h2>
+            <div class="header-row-actions">
+              <button type="button" id="chat-search-toggle" class="btn-link hidden" title="Find in this conversation" aria-label="Find in this conversation">Find</button>
+              <button type="button" id="new-chat-btn" class="btn-link hidden">New chat</button>
+              <button type="button" id="history-toggle" class="btn-link hidden">History</button>
+            </div>
+          </div>
+          <div id="chat-search-bar" class="chat-search-bar hidden">
+            <input type="text" id="chat-search-input" class="chat-search-input" aria-label="Find in this conversation" placeholder="Find in this conversation…" />
+            <span id="chat-search-count" class="chat-search-count"></span>
+            <button type="button" id="chat-search-prev" class="chat-search-nav-btn" title="Previous match" aria-label="Previous match">▲</button>
+            <button type="button" id="chat-search-next" class="chat-search-nav-btn" title="Next match" aria-label="Next match">▼</button>
+            <button type="button" id="chat-search-close" class="chat-search-nav-btn" title="Close" aria-label="Close search">✕</button>
+          </div>
+          <div id="history-panel" class="history-panel hidden">
+            <input type="text" id="history-search" class="history-search" aria-label="Search past questions" placeholder="Search past questions…" />
+            <div id="history-list" class="history-list"></div>
+          </div>
+          <div id="suggested-questions"></div>
+          <div id="chat-log">
+            <div id="chat-empty-state" class="chat-empty-state">
+              Ask anything about your data — try one of the suggestions above, or type your own question below.
+            </div>
+          </div>
+          <div id="chat-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+          <form id="chat-form">
+            <div class="chat-input-wrap">
+              <textarea id="chat-input" class="has-shortcut-hint" aria-label="Ask a question about your data" maxlength="4000" placeholder="e.g. which region underperformed last quarter?" rows="1"></textarea>
+              <kbd id="chat-shortcut-hint">⌘K</kbd>
+            </div>
+            <button type="submit" id="chat-submit">Ask</button>
+          </form>
+        </div>
+      </div>
+
+      <section id="insights-section" class="panel hidden">
+        <div class="panel-header-row">
+          <h2>Suggested views</h2>
+          <div class="header-row-actions">
+            <button type="button" id="custom-insight-btn" class="btn-link">+ Add view</button>
+            <button type="button" id="insights-refresh" class="btn-link">Regenerate</button>
+          </div>
+        </div>
+        <div id="insights-takeaways" class="insights-takeaways hidden"></div>
+        <div id="insights-content"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <div id="shortcuts-overlay" class="modal-overlay hidden">
+    <div class="modal shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-header">
+        <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+        <button type="button" id="shortcuts-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="shortcuts-list" class="shortcuts-list"></div>
+    </div>
+  </div>
+
+  <div id="model-modal-overlay" class="modal-overlay hidden">
+    <div class="modal model-modal" role="dialog" aria-modal="true" aria-labelledby="model-modal-title">
+      <div class="modal-header">
+        <h2 id="model-modal-title">Local model</h2>
+        <button type="button" id="model-modal-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <p class="model-modal-hint">Choose which locally-pulled Ollama model answers chat questions and generates suggested views. Pull more with <code>ollama pull &lt;name&gt;</code>.</p>
+      <div id="model-list" class="model-list"></div>
+    </div>
+  </div>
+
+  <div id="insight-modal-overlay" class="modal-overlay hidden">
+    <div class="modal insight-modal" role="dialog" aria-modal="true" aria-labelledby="insight-modal-title">
+      <div class="modal-header">
+        <h2 id="insight-modal-title"></h2>
+        <button type="button" id="insight-modal-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="insight-modal-body" class="insight-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="schema-diagram-overlay" class="modal-overlay hidden">
+    <div class="modal schema-diagram-modal" role="dialog" aria-modal="true" aria-labelledby="schema-diagram-title">
+      <div class="modal-header">
+        <h2 id="schema-diagram-title">Data model</h2>
+        <button type="button" id="schema-diagram-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="schema-diagram-body" class="schema-diagram-body"></div>
+    </div>
+  </div>
+
+  <div id="custom-insight-overlay" class="modal-overlay hidden">
+    <div class="modal custom-insight-modal" role="dialog" aria-modal="true" aria-labelledby="custom-insight-title">
+      <div class="modal-header">
+        <h2 id="custom-insight-title">Build a custom view</h2>
+        <button type="button" id="custom-insight-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <form id="custom-insight-form" class="custom-insight-form">
+        <label class="custom-insight-field">
+          <span>Table</span>
+          <select id="custom-insight-table" required></select>
+        </label>
+        <label class="custom-insight-field">
+          <span>Dimension</span>
+          <select id="custom-insight-dimension" required></select>
+        </label>
+        <label class="custom-insight-field">
+          <span>Aggregate</span>
+          <select id="custom-insight-agg" required>
+            <option value="sum">Sum</option>
+            <option value="avg">Average</option>
+            <option value="count">Count of rows</option>
+          </select>
+        </label>
+        <label class="custom-insight-field" id="custom-insight-measure-field">
+          <span>Measure</span>
+          <select id="custom-insight-measure"></select>
+        </label>
+        <label class="custom-insight-field">
+          <span>Filter <em>(optional)</em></span>
+          <select id="custom-insight-filter-column">
+            <option value="">No filter</option>
+          </select>
+        </label>
+        <label class="custom-insight-field hidden" id="custom-insight-filter-value-field">
+          <span>Filter value</span>
+          <select id="custom-insight-filter-value"></select>
+        </label>
+        <label class="custom-insight-field">
+          <span>Numeric filter <em>(optional)</em></span>
+          <select id="custom-insight-filter-measure">
+            <option value="">No numeric filter</option>
+          </select>
+        </label>
+        <div class="custom-insight-field custom-insight-numeric-row hidden" id="custom-insight-filter-numeric-row">
+          <label>
+            <span>Condition</span>
+            <select id="custom-insight-filter-operator">
+              <option value=">">&gt;</option>
+              <option value=">=">&gt;=</option>
+              <option value="<">&lt;</option>
+              <option value="<=">&lt;=</option>
+              <option value="=">=</option>
+            </select>
+          </label>
+          <label>
+            <span>Threshold</span>
+            <input type="number" id="custom-insight-filter-threshold" step="any" />
+          </label>
+        </div>
+        <label class="custom-insight-field">
+          <span>Chart type</span>
+          <select id="custom-insight-chart-type" required>
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="pie">Pie</option>
+            <option value="map">Map</option>
+          </select>
+        </label>
+        <label class="custom-insight-field">
+          <span>Title <em>(optional)</em></span>
+          <input type="text" id="custom-insight-title-input" placeholder="Auto-generated if left blank" />
+        </label>
+        <div id="custom-insight-error" class="custom-insight-error hidden"></div>
+        <div class="custom-insight-actions">
+          <button type="submit" id="custom-insight-submit">Add view</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="command-palette-overlay" class="modal-overlay hidden">
+    <div class="modal command-palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="command-palette-input-wrap">
+        <span class="command-palette-icon" aria-hidden="true">⌘</span>
+        <input type="text" id="command-palette-input" class="command-palette-input" aria-label="Ask a question or search actions" placeholder="Ask a question or search actions…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="command-palette-results" class="command-palette-results"></div>
+    </div>
+  </div>
+
+  <div id="column-profile-overlay" class="modal-overlay hidden">
+    <div class="modal column-profile-modal" role="dialog" aria-modal="true" aria-labelledby="column-profile-title">
+      <div class="modal-header">
+        <h2 id="column-profile-title"></h2>
+        <button type="button" id="column-profile-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div id="column-profile-body" class="column-profile-body"></div>
+    </div>
+  </div>
+
+  <div id="data-browser-overlay" class="modal-overlay hidden">
+    <div class="modal data-browser-modal" role="dialog" aria-modal="true" aria-labelledby="data-browser-title">
+      <div class="modal-header">
+        <h2 id="data-browser-title"></h2>
+        <div class="header-btn-group">
+          <button type="button" id="data-browser-export" class="export-btn" title="Export the current view as CSV">Export CSV</button>
+          <button type="button" id="data-browser-close" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div id="data-browser-filter-chip" class="data-browser-filter-chip hidden">
+        <span id="data-browser-filter-chip-text"></span>
+        <button type="button" id="data-browser-filter-chip-clear" aria-label="Clear filter">✕</button>
+      </div>
+      <div class="data-browser-toolbar">
+        <div class="data-browser-search-wrap">
+          <input type="text" id="data-browser-search" class="data-browser-search" aria-label="Search rows" placeholder="Search rows…" autocomplete="off" spellcheck="false" />
+          <button type="button" id="data-browser-search-clear" class="data-browser-search-clear hidden" aria-label="Clear search">✕</button>
+        </div>
+        <span id="data-browser-summary" class="data-browser-summary"></span>
+        <div class="data-browser-pagination">
+          <button type="button" id="data-browser-prev" class="btn-link">◀ Prev</button>
+          <button type="button" id="data-browser-next" class="btn-link">Next ▶</button>
+        </div>
+      </div>
+      <div id="data-browser-table-wrap" class="data-browser-table-wrap"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
