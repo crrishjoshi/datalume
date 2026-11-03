@@ -20,6 +20,9 @@ thinking, software engineering, and responsible application security. I am
 continuing to improve it as I learn more and validate the product against real
 use cases.
 
+For the business rationale, product positioning, USP, technology, and security
+controls, see the [technical and security report](docs/TECHNICAL_SECURITY_REPORT.md).
+
 ## How it works
 
 ```
